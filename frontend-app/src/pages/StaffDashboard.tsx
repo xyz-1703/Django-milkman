@@ -1,18 +1,70 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Edit, Trash2, Package, Users, ShoppingBag, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { products as initialProducts, categories, sampleOrders, sampleDeliveries, Product } from "@/data/mockData";
+import { fetchCategories, fetchProducts } from "@/lib/catalogApi";
+import { Category, Product } from "@/types/catalog";
+import { authFetchAll } from "@/lib/api";
+
+type StaffOrder = {
+  id: string;
+  date: string;
+  status: "pending" | "processing" | "delivered" | "cancelled";
+  total: string | number;
+  user_name?: string;
+  user_email?: string;
+  user_contact_number?: string;
+  user_full_address?: string;
+  items: Array<{ quantity: number }>;
+};
 
 const StaffDashboard = () => {
   const [tab, setTab] = useState<"products" | "categories" | "orders" | "customers">("products");
-  const [productsList, setProductsList] = useState<Product[]>(initialProducts);
+  const [productsList, setProductsList] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [orders, setOrders] = useState<StaffOrder[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const [formData, setFormData] = useState({ name: "", category: "milk", price: 0, unit: "", description: "", image: "", isSubscribable: false });
+  const [formData, setFormData] = useState({ name: "", category: "", price: 0, unit: "", description: "", image: "", isSubscribable: false });
+
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const [categoriesData, productsData] = await Promise.all([fetchCategories(), fetchProducts()]);
+        setCategories(categoriesData);
+        setProductsList(productsData);
+        if (categoriesData.length > 0) {
+          setFormData((prev) => ({ ...prev, category: prev.category || categoriesData[0].id }));
+        }
+      } catch {
+        setCatalogError("Unable to load catalog data.");
+      } finally {
+        setLoadingCatalog(false);
+      }
+    };
+
+    loadCatalog();
+  }, []);
+
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        const fetchedOrders = await authFetchAll<StaffOrder>("/orders/");
+        setOrders(fetchedOrders);
+      } catch {
+        setCatalogError("Unable to load order data.");
+      }
+    };
+
+    loadOrders();
+    const interval = window.setInterval(loadOrders, 15000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const startAdd = () => {
-    setFormData({ name: "", category: "milk", price: 0, unit: "", description: "", image: "", isSubscribable: false });
+    setFormData({ name: "", category: categories[0]?.id || "", price: 0, unit: "", description: "", image: "", isSubscribable: false });
     setEditingProduct(null);
     setShowForm(true);
   };
@@ -45,14 +97,16 @@ const StaffDashboard = () => {
     <div className="container mx-auto px-4 py-8">
       <h1 className="font-display text-3xl font-bold">Staff Dashboard</h1>
       <p className="mt-1 mb-6 text-muted-foreground">Manage products, orders, and deliveries</p>
+      {loadingCatalog && <p className="mb-4 text-sm text-muted-foreground">Loading catalog...</p>}
+      {catalogError && !loadingCatalog && <p className="mb-4 text-sm text-destructive">{catalogError}</p>}
 
       {/* Stats */}
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         {[
           { label: "Products", value: productsList.length, icon: Package },
           { label: "Categories", value: categories.length, icon: ShoppingBag },
-          { label: "Orders", value: sampleOrders.length, icon: Truck },
-          { label: "Deliveries Today", value: sampleDeliveries.filter((d) => d.status === "pending").length, icon: Users },
+          { label: "Orders", value: orders.length, icon: Truck },
+          { label: "Deliveries Today", value: orders.filter((o) => o.status === "pending" || o.status === "processing").length, icon: Users },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="rounded-xl border border-border bg-card p-4">
             <Icon className="mb-2 h-5 w-5 text-primary" />
@@ -136,7 +190,7 @@ const StaffDashboard = () => {
             <div key={cat.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-4">
               <img src={cat.image} alt={cat.name} className="h-16 w-16 rounded-lg object-cover" />
               <div>
-                <p className="font-semibold">{cat.icon} {cat.name}</p>
+                <p className="font-semibold">{cat.name}</p>
                 <p className="text-sm text-muted-foreground">{cat.description}</p>
                 <p className="text-xs text-muted-foreground">{productsList.filter((p) => p.category === cat.id).length} products</p>
               </div>
@@ -151,6 +205,8 @@ const StaffDashboard = () => {
             <thead className="bg-secondary">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Order ID</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Customer</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Address</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Date</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Items</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Total</th>
@@ -158,9 +214,15 @@ const StaffDashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {sampleOrders.map((o) => (
+              {orders.map((o) => (
                 <tr key={o.id} className="hover:bg-muted/50">
                   <td className="px-4 py-3 font-medium">{o.id}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    <p>{o.user_name || "-"}</p>
+                    <p className="text-xs">{o.user_email || "-"}</p>
+                    <p className="text-xs">{o.user_contact_number || "-"}</p>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{o.user_full_address || "-"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{o.date}</td>
                   <td className="px-4 py-3 text-muted-foreground">{o.items.length} items</td>
                   <td className="px-4 py-3 font-medium">₹{o.total}</td>

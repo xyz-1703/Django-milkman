@@ -1,0 +1,15 @@
+[Unit]
+Description=Milkman Django Gunicorn Service
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/var/www/milkman
+EnvironmentFile=/var/www/milkman/.env
+ExecStart=/var/www/milkman/venv/bin/gunicorn milkman_backend.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

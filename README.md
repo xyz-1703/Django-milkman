@@ -18,7 +18,7 @@ A comprehensive Django REST API backend for the Milkman dairy delivery platform.
 
 2. **Install dependencies:**
    ```powershell
-   pip install django djangorestframework django-cors-headers django-filter
+   pip install -r requirements.txt
    ```
 
 3. **Run migrations:**
@@ -44,8 +44,13 @@ Server runs at: `http://127.0.0.1:8000/`
 
 ### Authentication
 - `POST /api/users/login/` - User login
+- `POST /api/users/admin-login/` - Admin-only login
 - `POST /api/users/register/` - User registration
 - `GET /api/users/me/` - Get current user (requires auth)
+
+Login and registration responses include:
+- `user`: user profile object
+- `token`: DRF auth token used as `Authorization: Token <token>`
 
 ### Products
 - `GET /api/products/categories/` - List all categories
@@ -135,9 +140,89 @@ The backend is configured to accept requests from:
 - `http://localhost:3000`
 - Local and network access
 
+For deployment, configure `.env` from `.env.example`:
+- `DJANGO_SECRET_KEY`
+- `DJANGO_DEBUG`
+- `DJANGO_ALLOWED_HOSTS`
+- `CORS_ALLOWED_ORIGINS`
+- `CSRF_TRUSTED_ORIGINS`
+- `DATABASE_URL`
+
 ## 🎯 Frontend Integration
 
-The React frontend (in `frontend-app/` folder) is configured to call these API endpoints at `http://127.0.0.1:8000/api/`.
+The React frontend (in `frontend-app/` folder) reads API URL from `VITE_API_BASE_URL`.
+
+For deployment, create `frontend-app/.env` from `frontend-app/.env.example` and set:
+- `VITE_API_BASE_URL=https://your-backend-domain.com/api`
+
+## 🚀 Production Deployment (Azure VM / Linux)
+
+This repo is now production-ready with:
+- environment-driven Django configuration
+- PostgreSQL support via `DATABASE_URL`
+- static file serving via WhiteNoise
+- sample Gunicorn + Nginx configs in `deploy/`
+
+### 1. Backend Setup
+
+```bash
+cd /var/www/milkman
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# edit .env with production values
+python manage.py migrate
+python manage.py collectstatic --noinput
+python manage.py check --deploy
+```
+
+### 2. Gunicorn Service
+
+1. Copy `deploy/gunicorn.service.example` to `/etc/systemd/system/milkman.service`
+2. Update paths/user in the service file
+3. Start and enable the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable milkman
+sudo systemctl start milkman
+sudo systemctl status milkman
+```
+
+### 3. Nginx Reverse Proxy
+
+1. Copy `deploy/nginx.milkman.conf.example` to `/etc/nginx/sites-available/milkman`
+2. Update `server_name` and directory paths
+3. Enable site and reload:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/milkman /etc/nginx/sites-enabled/milkman
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 4. Frontend Build and Deploy
+
+```bash
+cd frontend-app
+cp .env.example .env
+# set VITE_API_BASE_URL to your backend API URL
+npm install
+npm run build
+```
+
+Deploy `frontend-app/dist/` on your static host (Nginx, Azure Static Web Apps, Vercel, or Netlify).
+
+### 5. HTTPS
+
+Use Certbot for TLS on the VM:
+
+```bash
+sudo apt update
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d api.your-domain.com
+```
 
 ### Frontend Features
 - User login/registration

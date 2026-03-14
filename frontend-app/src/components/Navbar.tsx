@@ -10,6 +10,7 @@ const Navbar = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isAdmin = user?.role === "admin";
 
   const getDashboardLink = () => {
     if (!user) return "/login";
@@ -28,13 +29,17 @@ const Navbar = () => {
 
         {/* Desktop links */}
         <div className="hidden items-center gap-6 md:flex">
-          <Link to="/" className="text-sm font-medium text-muted-foreground transition hover:text-foreground">Home</Link>
-          <Link to="/products" className="text-sm font-medium text-muted-foreground transition hover:text-foreground">Products</Link>
+          {!isAdmin && <Link to="/" className="text-sm font-medium text-muted-foreground transition hover:text-foreground">Home</Link>}
+          {!isAdmin && <Link to="/products" className="text-sm font-medium text-muted-foreground transition hover:text-foreground">Products</Link>}
           {isAuthenticated && user?.role === "customer" && (
             <>
               <Link to="/subscriptions" className="text-sm font-medium text-muted-foreground transition hover:text-foreground">Subscriptions</Link>
               <Link to="/orders" className="text-sm font-medium text-muted-foreground transition hover:text-foreground">Orders</Link>
+              <Link to="/account" className="text-sm font-medium text-muted-foreground transition hover:text-foreground">Account</Link>
             </>
+          )}
+          {isAuthenticated && user?.role === "staff" && (
+            <Link to="/account" className="text-sm font-medium text-muted-foreground transition hover:text-foreground">Account</Link>
           )}
           {isAuthenticated && (user?.role === "staff" || user?.role === "admin") && (
             <>
@@ -68,9 +73,14 @@ const Navbar = () => {
               </button>
             </div>
           ) : (
-            <Link to="/login">
-              <Button size="sm" className="hidden md:inline-flex">Login</Button>
-            </Link>
+            <div className="hidden items-center gap-2 md:flex">
+              <Link to="/login">
+                <Button size="sm" variant="outline">Customer Login</Button>
+              </Link>
+              <Link to="/admin-login">
+                <Button size="sm">Admin Login</Button>
+              </Link>
+            </div>
           )}
 
           <button onClick={() => setMobileOpen(!mobileOpen)} className="rounded-full p-2 text-foreground md:hidden">
@@ -83,15 +93,23 @@ const Navbar = () => {
       {mobileOpen && (
         <div className="border-t border-border bg-card p-4 md:hidden">
           <div className="flex flex-col gap-3">
-            <Link to="/" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Home</Link>
-            <Link to="/products" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Products</Link>
+            {!isAdmin && <Link to="/" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Home</Link>}
+            {!isAdmin && <Link to="/products" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Products</Link>}
             {isAuthenticated && user?.role === "customer" && (
               <>
                 <Link to="/subscriptions" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Subscriptions</Link>
                 <Link to="/orders" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Orders</Link>
+                <Link to="/account" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Account</Link>
               </>
             )}
-            {isAuthenticated && (user?.role === "staff" || user?.role === "admin") && (
+            {isAuthenticated && user?.role === "staff" && (
+              <>
+                <Link to="/staff" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Dashboard</Link>
+                <Link to="/delivery" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Deliveries</Link>
+                <Link to="/account" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Account</Link>
+              </>
+            )}
+            {isAuthenticated && user?.role === "admin" && (
               <>
                 <Link to="/staff" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Dashboard</Link>
                 <Link to="/delivery" onClick={() => setMobileOpen(false)} className="text-sm font-medium">Deliveries</Link>
@@ -103,7 +121,10 @@ const Navbar = () => {
             {isAuthenticated ? (
               <button onClick={() => { logout(); navigate("/"); setMobileOpen(false); }} className="text-left text-sm font-medium text-destructive">Logout ({user?.name})</button>
             ) : (
-              <Link to="/login" onClick={() => setMobileOpen(false)} className="text-sm font-medium text-primary">Login</Link>
+              <>
+                <Link to="/login" onClick={() => setMobileOpen(false)} className="text-sm font-medium text-primary">Customer Login</Link>
+                <Link to="/admin-login" onClick={() => setMobileOpen(false)} className="text-sm font-medium text-primary">Admin Login</Link>
+              </>
             )}
           </div>
         </div>

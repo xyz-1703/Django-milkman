@@ -2,10 +2,59 @@ import { X, Plus, Minus, Trash2, ShoppingBag } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { authFetch } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 
 const CartSidebar = () => {
   const { items, isCartOpen, setIsCartOpen, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+
+  const handleCheckout = async () => {
+    if (items.length === 0 || isCheckingOut) return;
+
+    if (!isAuthenticated || !user) {
+      setIsCartOpen(false);
+      navigate("/login");
+      return;
+    }
+
+    setCheckoutError("");
+    setIsCheckingOut(true);
+
+    const orderPayload = {
+      id: `ORD-${Date.now()}`,
+      total: totalPrice.toFixed(2),
+      items: items.map((item) => ({
+        product: item.product.id,
+        quantity: item.quantity,
+        price: item.product.price,
+      })),
+    };
+
+    try {
+      const response = await authFetch("/orders/", {
+        method: "POST",
+        body: JSON.stringify(orderPayload),
+      });
+
+      if (!response.ok) {
+        setCheckoutError("Unable to place order. Please try again.");
+        return;
+      }
+
+      clearCart();
+      setIsCartOpen(false);
+      navigate("/orders");
+    } catch {
+      setCheckoutError("Unable to connect to server.");
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
 
   if (!isCartOpen) return null;
 
@@ -61,8 +110,9 @@ const CartSidebar = () => {
                 <span className="font-display font-semibold">Total</span>
                 <span className="font-display text-lg font-bold">₹{totalPrice}</span>
               </div>
-              <Button className="w-full" size="lg" onClick={() => { clearCart(); setIsCartOpen(false); navigate("/orders"); }}>
-                Checkout — ₹{totalPrice}
+              {checkoutError && <p className="mb-3 text-sm text-destructive">{checkoutError}</p>}
+              <Button className="w-full" size="lg" onClick={handleCheckout} disabled={isCheckingOut}>
+                {isCheckingOut ? "Placing Order..." : `Checkout - ₹${totalPrice}`}
               </Button>
             </div>
           </>

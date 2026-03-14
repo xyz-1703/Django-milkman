@@ -8,9 +8,12 @@ import { AuthProvider } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import CartSidebar from "@/components/CartSidebar";
 import Footer from "@/components/Footer";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Products from "./pages/Products";
 import Login from "./pages/Login";
+import AdminLogin from "./pages/AdminLogin";
+import Account from "./pages/Account";
 import Subscriptions from "./pages/Subscriptions";
 import Orders from "./pages/Orders";
 import StaffDashboard from "./pages/StaffDashboard";
@@ -35,11 +38,13 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/products" element={<Products />} />
                   <Route path="/login" element={<Login />} />
-                  <Route path="/subscriptions" element={<Subscriptions />} />
-                  <Route path="/orders" element={<Orders />} />
-                  <Route path="/staff" element={<StaffDashboard />} />
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/delivery" element={<DeliveryPanel />} />
+                  <Route path="/admin-login" element={<AdminLogin />} />
+                  <Route path="/account" element={<ProtectedRoute allowedRoles={["customer", "staff", "admin"]}><Account /></ProtectedRoute>} />
+                  <Route path="/subscriptions" element={<ProtectedRoute allowedRoles={["customer"]}><Subscriptions /></ProtectedRoute>} />
+                  <Route path="/orders" element={<ProtectedRoute allowedRoles={["customer"]}><Orders /></ProtectedRoute>} />
+                  <Route path="/staff" element={<ProtectedRoute allowedRoles={["staff", "admin"]}><StaffDashboard /></ProtectedRoute>} />
+                  <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
+                  <Route path="/delivery" element={<ProtectedRoute allowedRoles={["staff", "admin"]}><DeliveryPanel /></ProtectedRoute>} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>

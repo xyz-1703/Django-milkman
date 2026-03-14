@@ -1,7 +1,8 @@
 import { ShoppingCart, Star } from "lucide-react";
-import { Product } from "@/data/mockData";
+import { Product } from "@/types/catalog";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
+import { handleImageError, productImageOrFallback } from "@/lib/imageFallback";
 
 const ProductCard = ({ product }: { product: Product }) => {
   const { addToCart } = useCart();
@@ -10,9 +11,10 @@ const ProductCard = ({ product }: { product: Product }) => {
     <div className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
       <div className="relative overflow-hidden">
         <img
-          src={product.image}
+          src={productImageOrFallback(product.image)}
           alt={product.name}
           className="h-48 w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          onError={(event) => handleImageError(event, "product")}
         />
         {product.isSubscribable && (
           <span className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground">

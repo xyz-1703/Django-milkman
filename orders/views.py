@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from .models import Order, OrderItem
 from .serializers import OrderSerializer, OrderItemSerializer
 
@@ -10,7 +11,20 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        return Order.objects.filter(user=self.request.user)
+        queryset = Order.objects.select_related('user').prefetch_related('items__product').order_by('-created_at')
+        if getattr(self.request.user, 'role', None) in ['admin', 'staff']:
+            return queryset
+        return queryset.filter(user=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        if getattr(request.user, 'role', None) not in ['admin', 'staff']:
+            raise PermissionDenied('Only staff/admin can update orders.')
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if getattr(request.user, 'role', None) not in ['admin', 'staff']:
+            raise PermissionDenied('Only staff/admin can update orders.')
+        return super().partial_update(request, *args, **kwargs)
     
     def create(self, request, *args, **kwargs):
         data = request.data

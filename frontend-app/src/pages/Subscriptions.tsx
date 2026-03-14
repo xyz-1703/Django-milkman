@@ -1,38 +1,136 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Play, Pause, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { sampleSubscriptions, products, Subscription } from "@/data/mockData";
+import { authFetch } from "@/lib/api";
+import { fetchProducts } from "@/lib/catalogApi";
+import { Product } from "@/types/catalog";
+
+interface Subscription {
+  id: string;
+  productName: string;
+  quantity: number;
+  deliveryDays: string[];
+  status: "active" | "paused";
+  monthlyTotal: number;
+  startDate: string;
+}
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const Subscriptions = () => {
-  const [subs, setSubs] = useState<Subscription[]>(sampleSubscriptions);
+  const [subs, setSubs] = useState<Subscription[]>([]);
+  const [subscribableProducts, setSubscribableProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showNew, setShowNew] = useState(false);
-  const [newProduct, setNewProduct] = useState(products.filter((p) => p.isSubscribable)[0]?.id || "");
+  const [newProduct, setNewProduct] = useState("");
   const [newQty, setNewQty] = useState(1);
   const [newDays, setNewDays] = useState<string[]>(["Mon", "Wed", "Fri"]);
 
-  const toggleStatus = (id: string) => {
-    setSubs((prev) => prev.map((s) => s.id === id ? { ...s, status: s.status === "active" ? "paused" : "active" } : s));
+  useEffect(() => {
+    const loadSubscriptions = async () => {
+      try {
+        const [response, productsData] = await Promise.all([authFetch("/subscriptions/"), fetchProducts()]);
+        const onlySubscribable = productsData.filter((product) => product.isSubscribable);
+        setSubscribableProducts(onlySubscribable);
+        if (!newProduct && onlySubscribable.length > 0) {
+          setNewProduct(onlySubscribable[0].id);
+        }
+
+        if (!response.ok) {
+          setError("Unable to load subscriptions.");
+          return;
+        }
+
+        const data = await response.json();
+        const rawSubs = Array.isArray(data) ? data : data.results;
+
+        const mappedSubs: Subscription[] = (rawSubs || []).map((sub: {
+          id: string;
+          product_name: string;
+          quantity: number;
+          delivery_days: string;
+          status: "active" | "paused";
+          monthly_total: string | number;
+          start_date: string;
+        }) => ({
+          id: sub.id,
+          productName: sub.product_name,
+          quantity: sub.quantity,
+          deliveryDays: sub.delivery_days.split(",").map((d) => d.trim()).filter(Boolean),
+          status: sub.status,
+          monthlyTotal: Number(sub.monthly_total),
+          startDate: sub.start_date,
+        }));
+
+        setSubs(mappedSubs);
+      } catch {
+        setError("Unable to connect to server.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSubscriptions();
+  }, []);
+
+  const toggleStatus = async (id: string) => {
+    const existing = subs.find((s) => s.id === id);
+    if (!existing) return;
+
+    const nextStatus = existing.status === "active" ? "paused" : "active";
+
+    const response = await authFetch(`/subscriptions/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: nextStatus }),
+    });
+
+    if (!response.ok) return;
+
+    setSubs((prev) => prev.map((s) => (s.id === id ? { ...s, status: nextStatus } : s)));
   };
 
   const toggleDay = (day: string) => {
     setNewDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
   };
 
-  const addSub = () => {
-    const product = products.find((p) => p.id === newProduct);
+  const addSub = async () => {
+    const product = subscribableProducts.find((p) => p.id === newProduct);
     if (!product || newDays.length === 0) return;
     const monthly = product.price * newQty * newDays.length * 4;
-    setSubs((prev) => [...prev, {
-      id: `SUB-${String(prev.length + 1).padStart(3, "0")}`,
-      productName: product.name,
-      quantity: newQty,
-      deliveryDays: newDays,
-      status: "active",
-      monthlyTotal: monthly,
-      startDate: new Date().toISOString().split("T")[0],
-    }]);
+
+    const newId = `SUB-${Date.now()}`;
+    const startDate = new Date().toISOString().split("T")[0];
+
+    const response = await authFetch("/subscriptions/", {
+      method: "POST",
+      body: JSON.stringify({
+        id: newId,
+        product: newProduct,
+        quantity: newQty,
+        delivery_days: newDays.join(","),
+        monthly_total: monthly,
+        start_date: startDate,
+      }),
+    });
+
+    if (!response.ok) {
+      setError("Unable to create subscription.");
+      return;
+    }
+
+    setSubs((prev) => [
+      ...prev,
+      {
+        id: newId,
+        productName: product.name,
+        quantity: newQty,
+        deliveryDays: newDays,
+        status: "active",
+        monthlyTotal: monthly,
+        startDate,
+      },
+    ]);
     setShowNew(false);
   };
 
@@ -46,6 +144,12 @@ const Subscriptions = () => {
         <Button onClick={() => setShowNew(!showNew)} className="gap-2"><Plus className="h-4 w-4" /> New Subscription</Button>
       </div>
 
+      {loading && <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Loading your subscriptions...</div>}
+      {error && !loading && <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+      {!loading && !error && subs.length === 0 && (
+        <div className="mb-6 rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">No subscriptions found for your account.</div>
+      )}
+
       {showNew && (
         <div className="mb-8 rounded-xl border border-border bg-card p-6 animate-fade-in">
           <h3 className="mb-4 font-display text-lg font-semibold">Create Subscription</h3>
@@ -53,7 +157,7 @@ const Subscriptions = () => {
             <div>
               <label className="mb-1 block text-sm font-medium">Product</label>
               <select value={newProduct} onChange={(e) => setNewProduct(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm">
-                {products.filter((p) => p.isSubscribable).map((p) => (
+                {subscribableProducts.map((p) => (
                   <option key={p.id} value={p.id}>{p.name} — ₹{p.price}/{p.unit}</option>
                 ))}
               </select>

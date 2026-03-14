@@ -1,12 +1,36 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Truck, Leaf, Clock, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { categories, products } from "@/data/mockData";
 import ProductCard from "@/components/ProductCard";
+import { fetchCategories, fetchProducts } from "@/lib/catalogApi";
+import { categoryImageOrFallback, handleImageError } from "@/lib/imageFallback";
+import { Category, Product } from "@/types/catalog";
 import heroImage from "@/assets/dairy-hero.jpg";
 
 const Index = () => {
-  const featured = products.slice(0, 4);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const [categoriesData, productsData] = await Promise.all([fetchCategories(), fetchProducts()]);
+        setCategories(categoriesData);
+        setProducts(productsData);
+      } catch {
+        setError("Unable to load catalog right now.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCatalog();
+  }, []);
+
+  const featured = useMemo(() => products.slice(0, 4), [products]);
 
   return (
     <div>
@@ -70,13 +94,14 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <h2 className="mb-2 font-display text-3xl font-bold text-foreground">Shop by Category</h2>
           <p className="mb-8 text-muted-foreground">Browse our range of farm-fresh dairy products</p>
+          {loading && <p className="mb-4 text-sm text-muted-foreground">Loading categories...</p>}
+          {error && !loading && <p className="mb-4 text-sm text-destructive">{error}</p>}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
             {categories.map((cat) => (
               <Link key={cat.id} to={`/products?category=${cat.id}`} className="group overflow-hidden rounded-xl border border-border bg-card p-4 text-center transition-all hover:-translate-y-1 hover:shadow-md">
                 <div className="mb-2 overflow-hidden rounded-lg">
-                  <img src={cat.image} alt={cat.name} className="h-24 w-full object-cover transition-transform group-hover:scale-110" />
+                  <img src={categoryImageOrFallback(cat.image)} alt={cat.name} className="h-24 w-full object-cover transition-transform group-hover:scale-110" onError={(event) => handleImageError(event, "category")} />
                 </div>
-                <span className="text-2xl">{cat.icon}</span>
                 <p className="mt-1 text-sm font-semibold text-foreground">{cat.name}</p>
               </Link>
             ))}
@@ -97,6 +122,7 @@ const Index = () => {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {featured.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
+          {!loading && !error && featured.length === 0 && <p className="mt-4 text-sm text-muted-foreground">No products available right now.</p>}
         </div>
       </section>
 
