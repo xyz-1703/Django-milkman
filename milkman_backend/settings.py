@@ -1,3 +1,4 @@
+
 """
 Django settings for milkman_backend project.
 
@@ -39,7 +40,10 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'replace-this-long-default-secret-ke
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = get_bool_env('DJANGO_DEBUG', False)
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = get_list_env(
+    'DJANGO_ALLOWED_HOSTS',
+    ['127.0.0.1', 'localhost', '[::1]', '20.41.118.47'],
+)
 
 # Application definition
 

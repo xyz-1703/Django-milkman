@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
+import { API_BASE_URL } from "@/lib/api";
 
 type Role = "customer" | "staff" | "admin";
 
@@ -27,7 +28,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
 const AUTH_USER_STORAGE_KEY = "dairyfresh_auth_user";
 const AUTH_TOKEN_STORAGE_KEY = "dairyfresh_auth_token";
 

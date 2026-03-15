@@ -1,4 +1,7 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
+// Default to same-origin API path so production works behind Nginx without extra env setup.
+export const API_BASE_URL = (rawApiBaseUrl || "/api").replace(/\/$/, "");
 
 export const getAuthToken = (): string | null => localStorage.getItem("dairyfresh_auth_token");
 
