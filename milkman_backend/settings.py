@@ -86,14 +86,21 @@ CORS_ALLOWED_ORIGINS = get_list_env(
     'CORS_ALLOWED_ORIGINS',
     [
         'https://milkman-frontend.duckdns.org',
-	'http://localhost:5173',
+        'https://milkman-backend-api.duckdns.org',
+        'http://localhost:5173',
         'http://localhost:3000',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:3000',
-    ] if DEBUG else [],
+    ],
 )
 
-CSRF_TRUSTED_ORIGINS = get_list_env('CSRF_TRUSTED_ORIGINS', ["https://milkman-frontend.duckdns.org"])
+CSRF_TRUSTED_ORIGINS = get_list_env(
+    'CSRF_TRUSTED_ORIGINS',
+    [
+        'https://milkman-frontend.duckdns.org',
+        'https://milkman-backend-api.duckdns.org',
+    ],
+)
 
 ROOT_URLCONF = 'milkman_backend.urls'
 

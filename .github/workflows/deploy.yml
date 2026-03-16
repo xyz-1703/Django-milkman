@@ -16,6 +16,18 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Validate deploy secrets
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USER: ${{ secrets.VM_USER }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+          VM_APP_DIR: ${{ secrets.VM_APP_DIR }}
+        run: |
+          test -n "$VM_HOST" || { echo "::error::Missing GitHub secret VM_HOST"; exit 1; }
+          test -n "$VM_USER" || { echo "::error::Missing GitHub secret VM_USER"; exit 1; }
+          test -n "$VM_SSH_KEY" || { echo "::error::Missing GitHub secret VM_SSH_KEY"; exit 1; }
+          test -n "$VM_APP_DIR" || { echo "::error::Missing GitHub secret VM_APP_DIR"; exit 1; }
+
       - name: Deploy on Azure VM over SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -64,6 +76,6 @@ jobs:
             npm run build
 
             echo "[6/6] Publish frontend + reload nginx"
-            sudo rsync -av --delete dist/ /var/www/milkman/frontend-app/dist/
-            sudo nginx -t
+            sudo rsync -av --delete dist/ /var/www/milkman-frontend/
+            sudo nginx -t && sudo systemctl reload nginx
             sudo systemctl reload nginx

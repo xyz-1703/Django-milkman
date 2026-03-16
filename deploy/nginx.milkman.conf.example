@@ -1,14 +1,21 @@
+# =============================================================================
+# FILE: /etc/nginx/sites-available/milkman-frontend
+# Serves the React SPA and proxies /api/ + /admin/ to Gunicorn (port 8001).
+# =============================================================================
+
 server {
-    listen 80;
-    server_name your-domain.com www.your-domain.com;
+    listen 443 ssl;
+    server_name milkman-frontend.duckdns.org;
 
-    client_max_body_size 20m;
-
-    # React build output
-    root /var/www/milkman/frontend-app/dist;
+    root /var/www/milkman-frontend;
     index index.html;
 
-    # Frontend static assets from Vite build
+    ssl_certificate /etc/letsencrypt/live/milkman-frontend.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/milkman-frontend.duckdns.org/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Vite-built JS/CSS bundles – long-lived cache
     location /assets/ {
         try_files $uri =404;
         access_log off;
@@ -16,22 +23,21 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
-    # Optional static/media if you choose to let Nginx serve them directly
+    # Django static files served by WhiteNoise (admin CSS/JS, DRF browser UI)
+    # Without this block, /static/* falls through to the SPA fallback and
+    # Django admin loses all its CSS.
     location /static/ {
-        alias /var/www/milkman/staticfiles/;
-        access_log off;
-        expires 30d;
+        proxy_pass http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /media/ {
-        alias /var/www/milkman/media/;
-        access_log off;
-        expires 30d;
-    }
-
-    # Django backend routes
+    # REST API
     location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8001;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -39,8 +45,9 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Django administration panel
     location /admin/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8001;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -48,8 +55,48 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Single-page app fallback so direct links like /products work
+    # Single-page app fallback – direct links like /products work
     location / {
         try_files $uri /index.html;
     }
+}
+
+server {
+    listen 80;
+    server_name milkman-frontend.duckdns.org;
+    return 301 https://$host$request_uri;
+}
+
+
+# =============================================================================
+# FILE: /etc/nginx/sites-available/milkman
+# Exposes the Django API directly on its own subdomain (no frontend files).
+# =============================================================================
+
+server {
+    listen 443 ssl;
+    server_name milkman-backend-api.duckdns.org;
+
+    ssl_certificate /etc/letsencrypt/live/milkman-backend-api.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/milkman-backend-api.duckdns.org/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name milkman-backend-api.duckdns.org;
+    if ($host = milkman-backend-api.duckdns.org) {
+        return 301 https://$host$request_uri;
+    }
+    return 404;
 }
