@@ -1,7 +1,28 @@
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
 
-// Default to same-origin API path so production works behind Nginx without extra env setup.
-export const API_BASE_URL = (rawApiBaseUrl || "/api").replace(/\/$/, "");
+const normalizeApiBaseUrl = (input?: string): string => {
+  if (!input) {
+    return "/api";
+  }
+
+  const value = input.replace(/\/$/, "");
+
+  // Keep same-origin path style when configured as /api.
+  if (value.startsWith("/")) {
+    return value.endsWith("/api") ? value : `${value}/api`;
+  }
+
+  // Allow absolute host form and ensure it targets /api.
+  if (/^https?:\/\//i.test(value)) {
+    return value.endsWith("/api") ? value : `${value}/api`;
+  }
+
+  // Fallback to same-origin API path if the env value is malformed.
+  return "/api";
+};
+
+// Supported forms: /api or https://milkman-frontend.duckdns.org/api
+export const API_BASE_URL = normalizeApiBaseUrl(rawApiBaseUrl);
 
 export const getAuthToken = (): string | null => localStorage.getItem("dairyfresh_auth_token");
 
@@ -43,7 +64,10 @@ export const authFetchAll = async <T>(path: string): Promise<T[]> => {
   let nextUrl: string | null = `${API_BASE_URL}${path}`;
 
   while (nextUrl) {
-    const response = await fetch(isAbsoluteUrl(nextUrl) ? nextUrl : `${API_BASE_URL}${nextUrl}`, {
+    // nextUrl is either the fully-built initial path ("/api/orders/") or an
+    // absolute URL returned by DRF pagination ("https://host/api/orders/?page=2").
+    // In both cases use it directly — do NOT prepend API_BASE_URL a second time.
+    const response = await fetch(nextUrl, {
       headers,
     });
 
@@ -57,7 +81,19 @@ export const authFetchAll = async <T>(path: string): Promise<T[]> => {
       nextUrl = null;
     } else {
       allResults.push(...(data.results || []));
-      nextUrl = data.next;
+      // DRF returns absolute next URLs using Django's internal host (e.g.
+      // http://127.0.0.1:8001/api/...).  Convert them to same-origin paths so
+      // the browser fetches through Nginx instead of directly hitting the port.
+      if (data.next) {
+        try {
+          const u = new URL(data.next);
+          nextUrl = u.pathname + u.search;
+        } catch {
+          nextUrl = data.next;
+        }
+      } else {
+        nextUrl = null;
+      }
     }
   }
 

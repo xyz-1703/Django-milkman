@@ -43,7 +43,17 @@ const fetchPaginated = async <T>(url: string): Promise<T[]> => {
       nextUrl = null;
     } else {
       allResults.push(...(data.results || []));
-      nextUrl = data.next;
+      // Rewrite absolute next URLs (Django's internal host) to same-origin paths.
+      if (data.next) {
+        try {
+          const u = new URL(data.next);
+          nextUrl = u.pathname + u.search;
+        } catch {
+          nextUrl = data.next;
+        }
+      } else {
+        nextUrl = null;
+      }
     }
   }
 
