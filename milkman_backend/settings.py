@@ -40,10 +40,15 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'replace-this-long-default-secret-ke
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = get_bool_env('DJANGO_DEBUG', False)
 
-ALLOWED_HOSTS = get_list_env(
-    'DJANGO_ALLOWED_HOSTS',
-    ['127.0.0.1', 'localhost', '[::1]', '20.41.118.47'],
-)
+ALLOWED_HOSTS = [
+		'127.0.0.1',
+		"milkman-frontend.duckdns.org", 
+		'localhost',
+		"milkman-backend-api.duckdns.org", 
+		'[::1]', 
+		'20.41.118.47'
+]
+
 
 # Application definition
 
@@ -80,14 +85,15 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = get_list_env(
     'CORS_ALLOWED_ORIGINS',
     [
-        'http://localhost:5173',
+        'https://milkman-frontend.duckdns.org',
+	'http://localhost:5173',
         'http://localhost:3000',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:3000',
     ] if DEBUG else [],
 )
 
-CSRF_TRUSTED_ORIGINS = get_list_env('CSRF_TRUSTED_ORIGINS', [])
+CSRF_TRUSTED_ORIGINS = get_list_env('CSRF_TRUSTED_ORIGINS', ["https://milkman-frontend.duckdns.org"])
 
 ROOT_URLCONF = 'milkman_backend.urls'
 
@@ -171,9 +177,9 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = get_bool_env('DJANGO_SECURE_SSL_REDIRECT', True)
-    SESSION_COOKIE_SECURE = get_bool_env('DJANGO_SESSION_COOKIE_SECURE', True)
-    CSRF_COOKIE_SECURE = get_bool_env('DJANGO_CSRF_COOKIE_SECURE', True)
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
     SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_SECURE_HSTS_SECONDS', '31536000'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = get_bool_env('DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS', True)
     SECURE_HSTS_PRELOAD = get_bool_env('DJANGO_SECURE_HSTS_PRELOAD', True)
