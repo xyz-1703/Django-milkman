@@ -40,14 +40,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'replace-this-long-default-secret-ke
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = get_bool_env('DJANGO_DEBUG', False)
 
-ALLOWED_HOSTS = [
-		'127.0.0.1',
-		"milkman-frontend.duckdns.org", 
-		'localhost',
-		"milkman-backend-api.duckdns.org", 
-		'[::1]', 
-		'20.41.118.47'
-]
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
